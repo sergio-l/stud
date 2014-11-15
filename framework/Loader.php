@@ -10,7 +10,7 @@ final class Loader
     /*
      * @var Array
      */
-    private static $_registry = array(0 => 'Framework');
+    private static $_registry = array('Framework' => __DIR__);
 
     /*
      * Loader instance
@@ -40,30 +40,61 @@ final class Loader
      */
     public static function addNamespacePath($namespace,$paths)
     {
-        self::$_registry[$namespace] = $paths;
+        if (!self::getNamespacePath($namespace)) {
+            self::$_registry[$namespace] = $paths;
+        }
     }
 
     /*
     * Get namespace path
     * @param string $namespace
     */
-    public static function getNamespacePath($namespace)
+    private static function getNamespacePath($namespace)
     {
         return array_key_exists($namespace,self::$_registry) ? self::$_registry : '';
     }
 
-    //TODO: подержка нейм.
     /*
      * Method loading class
      * @param sting $className
      */
     public static function load($className)
     {
-        if (strpos($className, self::$_registry[0]) === 0)
-        {
-            include_once(__DIR__.'/Application.php');
-            //require_once(__DIR__ . "\\" . ucfirst(str_replace(self::$_registry[0], "", $className)) . ".php");
+        $file = self::getPaths($className);
+        if ($file !== false && file_exists($file)) {
+            $included = include($file);
+
+            if (!$included && (!class_exists($className, false) || !interface_exists($className, false))){
+                throw new Exception(sprintf('Class "%s" doesn\'t exist in "%s', $className, $file));
+            }
+        } else {
+            throw new Exception('File '.$file.'is not found');
         }
+    }
+
+    /*
+     * Method returned path
+     * @param string $className
+     * @return bool | string
+     */
+    private function getPaths($className)
+    {
+        foreach (self::$_registry as $namespace => $path) {
+            if (strpos($className, $namespace) == 0) {
+                $className  = str_replace($namespace, '', $className);
+                $paths      = explode('\\', $className);
+
+                if ($paths) {
+                    $file = $path. '/'. implode('/', $paths) .'.php';
+                } else {
+                    $file = $path . '/' . $className;
+                }
+
+                return $file;
+            }
+        }
+
+        return false;
     }
 
     /*
